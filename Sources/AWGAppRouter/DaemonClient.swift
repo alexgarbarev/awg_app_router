@@ -222,9 +222,9 @@ final class DaemonClient {
             return
         }
         DispatchQueue.global(qos: .userInitiated).async {
-            // путь в одинарных кавычках: бандл «AWG App Router.app» с пробелом,
-            // без кавычек shell режет его по первому пробелу
-            let appleScript = NSAppleScript(source: "do shell script '\(script)' with administrator privileges")
+            // кавычки обязательны внутри AppleScript-строки: путь бандла с пробелом,
+            // без них /bin/sh режет команду по первому пробелу (exit 127)
+            let appleScript = NSAppleScript(source: "do shell script \"\\\"\(script)\\\" 2>&1\" with administrator privileges")
             var errDict: NSDictionary?
             appleScript?.executeAndReturnError(&errDict)
             let scriptOK = errDict == nil
