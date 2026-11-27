@@ -70,8 +70,21 @@ git push origin main
 git tag -a "v$VERSION" -m "AWG App Router v$VERSION"
 git push origin "v$VERSION"
 
-gh release create "v$VERSION" "$ZIP" \
-    --title "AWG App Router v$VERSION" \
-    --notes-file "$NOTES"
+# gh release create: при обрыве загрузки на полпути остаётся релиз с битым/
+# отсутствующим ассетом — повтор тогда чинит ассет, а не создаёт дубль
+if ! gh release create "v$VERSION" "$ZIP" \
+        --title "AWG App Router v$VERSION" \
+        --notes-file "$NOTES"; then
+    sleep 3
+    if gh release view "v$VERSION" >/dev/null 2>&1; then
+        echo "релиз уже есть — докачиваю ассет"
+        gh release upload "v$VERSION" "$ZIP" --clobber
+    else
+        echo "релиза нет — повторяю создание"
+        gh release create "v$VERSION" "$ZIP" \
+            --title "AWG App Router v$VERSION" \
+            --notes-file "$NOTES" --verify-tag
+    fi
+fi
 
 echo "готово: https://github.com/alexgarbarev/awg_app_router/releases/tag/v$VERSION"
