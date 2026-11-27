@@ -1,0 +1,38 @@
+MIT License
+
+Copyright (c) 2026 Aleksey Garbarev (app code, jointly developed with the
+AI agent qwen 3.8 flash next)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+This project bundles third-party components under their own licenses:
+
+- amnezia-box (fork of sing-box) — GPL-3.0
+  https://github.com/amnezia-vpn/amnezia-box
+  https://github.com/SagerNet/sing-box
+  The compiled core binary (awgapprouter-box) is a derivative work and is
+  distributed under the terms of GPL-3.0.
+
+- amneziawg-go — MIT
+  https://github.com/amnezia-vpn/amneziawg-go
+
+- gVisor netstack (compiled into the core) — Apache-2.0
+  https://gvisor.dev

@@ -1,0 +1,19 @@
+.DS_Store
+
+# собранные артефакты
+/bin/
+/dist/
+
+# vendor — отдельные клоны upstream (см. scripts/fetch-vendor.sh)
+/vendor/
+
+# личные заметки/артефакты приватной подготовки — не публикуются
+/spike/
+/DESIGN.md
+*.conf
+
+# build
+.build/
+DerivedData/
+Resources/AppIcon.iconset/
+Resources/AppIcon-1024.png

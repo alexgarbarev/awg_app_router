@@ -1,0 +1,34 @@
+AWG App Router — third-party notices
+=====================================
+
+This product statically links the following open-source components into
+the core binary `awgapprouter-box`.
+
+1. amnezia-box — GPL-3.0
+   https://github.com/amnezia-vpn/amnezia-box
+   A fork of sing-box used as the tunnel core (TUN + AmneziaWG + Clash API).
+   The compiled core binary is a derivative work of amnezia-box and is
+   therefore distributed under the terms of GNU GPL version 3.
+   Complete corresponding source: clone this repository and run
+   `scripts/fetch-vendor.sh && scripts/build-core.sh`, or clone
+   amnezia-box upstream at the commit recorded by fetch-vendor.
+
+2. sing-box — GPL-3.0
+   https://github.com/SagerNet/sing-box
+   Upstream of amnezia-box.
+
+3. amneziawg-go — MIT
+   https://github.com/amnezia-vpn/amneziawg-go
+   AmneziaWG protocol implementation (Go), linked into the core.
+
+4. wireguard-go — MIT
+   https://git.zx2c4.com/wireguard-go
+   Upstream lineage of amneziawg-go.
+
+5. gVisor netstack — Apache-2.0
+   https://gvisor.dev
+   Userspace TCP/IP stack used by the core for the TUN interface
+   (compiled in via sing-box/amnezia-box `with_gvisor` build tag).
+
+All trademarks and copyrights belong to their respective owners.
+The full GPL-3.0 license text: https://www.gnu.org/licenses/gpl-3.0.txt
