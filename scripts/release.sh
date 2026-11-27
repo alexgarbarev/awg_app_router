@@ -9,7 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="${1:-}"
-[[ "$VERSION" == +([0-9]).+([0-9]).+([0-9]) ]] || {
+[[ "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || {
     echo "использование: scripts/release.sh X.Y.Z"; exit 1
 }
 command -v gh >/dev/null 2>&1 || { echo "нужен gh: brew install gh"; exit 1; }
