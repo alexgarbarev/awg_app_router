@@ -8,5 +8,6 @@ let package = Package(
         .target(name: "AWGAppRouterKit"),
         .executableTarget(name: "AWGAppRouter", dependencies: ["AWGAppRouterKit"]),
         .executableTarget(name: "awgapprouterd", dependencies: ["AWGAppRouterKit"]),
+        .testTarget(name: "AWGAppRouterKitTests", dependencies: ["AWGAppRouterKit"]),
     ]
 )
