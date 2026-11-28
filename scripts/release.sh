@@ -14,6 +14,9 @@ VERSION="${1:-}"
 }
 command -v gh >/dev/null 2>&1 || { echo "нужен gh: brew install gh"; exit 1; }
 gh auth status >/dev/null 2>&1 || { echo "сначала: gh auth login"; exit 1; }
+# Без секции в CHANGELOG релиз выходит с пустым «Что нового» — не молчим:
+grep -qE "^## v$VERSION( |—|-)" CHANGELOG.md || {
+    echo "в CHANGELOG.md нет секции '## v$VERSION' — добавь описание и повтори"; exit 1; }
 git diff --quiet && git diff --cached --quiet || {
     echo "дерево грязное — сначала закоммить"; exit 1
 }
