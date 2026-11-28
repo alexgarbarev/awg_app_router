@@ -246,9 +246,13 @@ final class DaemonClient {
             let appleScript = NSAppleScript(source: "do shell script \"\(cmd)\" with administrator privileges")
             var errDict: NSDictionary?
             _ = appleScript?.executeAndReturnError(&errDict)
-            // настоящая причина падения: у AppleScript-ошибки ключ NSerrorString
-            let errMsg: String? = errDict.map {
-                ($0["NSerrorString"] as? String) ?? $0.description
+            // настоящая причина падения: ключи NSAppleScript-ошибки —
+            // NSAppleScriptErrorMessage/BriefMessage/Number (не NSerrorString)
+            let errMsg: String? = errDict.map { d in
+                (d["NSAppleScriptErrorMessage"] as? String)
+                    ?? (d["NSAppleScriptErrorBriefMessage"] as? String)
+                    ?? (d["NSAppleScriptErrorNumber"].map { "osascript error \($0)" })
+                    ?? d.description
             }
             // авторитет — живой демон, не код osascript: установка могла пройти,
             // а osascript споткнуться (гонка launchctl) — UI не должен врать.

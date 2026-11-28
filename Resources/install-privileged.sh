@@ -97,17 +97,31 @@ chmod 0644 /etc/awgapprouter/mode /etc/awgapprouter/apps.json 2>/dev/null || tru
 chmod 0750 /etc/awgapprouter
 
 launchctl bootout system/com.awgapprouter.daemon 2>/dev/null || true
-# bootout асинхронный: bootstrap сразу может вернуть "already loaded" —retry
+# bootout асинхронный и с дочерним box может занимать секунды: bootstrap в это
+# время стабильно отдаёт "Input/output error". Ждём фактического исчезновения
+# сервиса (до 10 с), потом бустрапулем.
+for _ in $(seq 1 20); do
+    launchctl print system/com.awgapprouter.daemon >/dev/null 2>&1 || break
+    sleep 0.5
+done
 BOOT_OK=no
+BOOT_ERR=""
 for _ in 1 2 3 4 5 6; do
-    if launchctl bootstrap system /Library/LaunchDaemons/com.awgapprouter.daemon.plist 2>/dev/null; then
+    if BOOT_ERR="$(launchctl bootstrap system /Library/LaunchDaemons/com.awgapprouter.daemon.plist 2>&1)"; then
         BOOT_OK=yes; break
     fi
     sleep 0.5
 done
 if [ "$BOOT_OK" != yes ]; then
     # возможно уже был загружен и жив — перезапускаем, иначе это настоящая ошибка
-    launchctl print system/com.awgapprouter.daemon >/dev/null 2>&1 || exit 1
+    if ! launchctl print system/com.awgapprouter.daemon >/dev/null 2>&1; then
+        echo "bootstrap не удался: $BOOT_ERR"
+        echo "--- launchd print ---"
+        launchctl print system/com.awgapprouter.daemon 2>&1 | head -15 || true
+        echo "--- daemon log ---"
+        tail -8 /var/log/awgapprouter-daemon.log 2>/dev/null || echo "(лог пуст/нет)"
+        exit 1
+    fi
     launchctl kickstart -k system/com.awgapprouter.daemon 2>/dev/null || true
 fi
 
