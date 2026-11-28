@@ -18,9 +18,9 @@
 /// release.sh: `release.sh X.Y.Z` — bump appReleaseVersion (UI-only);
 /// `release.sh X.Y.Z --daemon` — поднимает ещё daemonVersion и
 /// minDaemonVersion (изменения в демоне обязательны для этого GUI).
-public let appReleaseVersion = "1.0.4"
-public let daemonVersion = "1.0.4"
-public let minDaemonVersion = "1.0.4"
+public let appReleaseVersion = "1.0.5"
+public let daemonVersion = "1.0.5"
+public let minDaemonVersion = "1.0.5"
 
 /// Числовой сравнитель semver «a < b?» (неполные версии дополняются нулями).
 /// Не используем стандартную строковую '<': "1.10.0" < "1.9.0" было бы неправдой.
