@@ -50,6 +50,8 @@ final class Supervisor {
 
     // применение
     private var appliedStruct = ""                    // структурный хеш рабочего конфига
+    private let governor = RestartGovernor(coalesce: 2)   // коалесинг составов,
+    // backoff bounce tun и watchdog «box мёртв» — все паузы в одном месте
     private var desired: [String: String] = [:]     // selector tag -> target
     private let applyQ = DispatchQueue(label: "awgapprouter.apply")
     // «залипшие» direct-сокеты приложений: pf tuple-kill по событию
@@ -237,7 +239,19 @@ final class Supervisor {
             let n = loadServers().filter(\.enabled).count
             return n > 0 ? "туннель(и) поднимаются" : "тюрьма активна (защита включена)"
         }
+        // серия структурных команд за короткое окно = ОДИН рестарт: свежая
+        // заявка переносится на конец окна (конфиг перегенерится и соберёт
+        // все команды). Раньше каждый sync/добавление = terminate+spawn.
+        let nowD = Date()
+        if !governor.structuralRestartAllowed(at: nowD) {
+            applyQ.asyncAfter(deadline: .now() + governor.coalesce) { [weak self] in
+                _ = self?.applyIntentLocked("коалесинг")
+            }
+            publishNow()
+            return "изменения применятся через мгновение"
+        }
         appliedStruct = newStruct
+        governor.structuralRestarted(at: nowD)
         // снять блок из ЯДРА, а не только флаг: флаг в памяти мог быть уже
         // сброшен, а правила pf — остаться (иначе WAN заблокирован навсегда)
         if PFFirewall.isSealed() { PFFirewall.unseal() }
@@ -652,6 +666,7 @@ final class Supervisor {
                 // прибитые к en0 пока tun не было, — прямая дыра в защите (даже в
                 // тюрьме: залипшие сессии дотекают мимо ядра). Рвём их сразу.
                 lastTunUp = true
+                governor.tunCameUp(at: Date())   // backoffbounce/crash — снова к базе
                 PFFirewall.killStates()
                 killStickyDirect()
             }
@@ -673,8 +688,12 @@ final class Supervisor {
             // конфигом пережил bootout) — bounce, иначе seal навсегда
             if runningBoxPid() != 0 {
                 tunMismatch += 1
-                if tunMismatch >= 3 && Date().timeIntervalSince(lastStart) >= 10 {
+                // раньше bounce был каждые 10 с при мёртвом tun — шторм: TUN/pf
+                // дёргались бесконечно. Теперь экспоненциальная пауза (10→300),
+                // счётчик mismatch'ей остаётся фильтром ложных срабатываний
+                if tunMismatch >= 3 && governor.bounceAllowed(at: Date()) {
                     tunMismatch = 0
+                    governor.bounceFired(at: Date())
                     NSLog("awgapprouterd: tun не совпадает с конфигом — перезапускаю ядро")
                     applyQ.async {
                         self.appliedStruct = ""   // structural-галочка не должна спасать
@@ -813,9 +832,13 @@ final class Supervisor {
     private func restartIfThrottled() {
         lock.lock(); defer { lock.unlock() }
         guard box == nil, runningBoxPid() == 0 else { return }
-        guard Date().timeIntervalSince(lastStart) >= 5 else { return }
+        // было: каждые 5 с до бесконечности — краш-петля битого конфига
+        // долбила ядро; теперь 5 → 10 → 20 → … 60 с, сброс при oживлении tun
+        let nowD = Date()
+        guard governor.crashRestartAllowed(at: nowD) else { return }
         NSLog("awgapprouterd: box мёртв — рестарт")
-        lastStart = Date()
+        lastStart = nowD
+        governor.crashRestarted(at: nowD)
         launchBoxLocked()
     }
 
