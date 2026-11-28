@@ -459,7 +459,8 @@ final class Supervisor {
         return DaemonState(generation: gen, bootID: bootID, mode: mode,
                            boxRunning: running, tunUp: tun, sealed: sealed,
                            lastError: lastError, servers: states, appRoutes: routes,
-                           autostartConnect: autoConnectOn)
+                           autostartConnect: autoConnectOn,
+                           daemonVersion: appReleaseVersion)
     }
 
     private func publishNow() {

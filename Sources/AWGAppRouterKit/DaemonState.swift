@@ -129,22 +129,26 @@ public struct DaemonState: Codable {
     public let appRoutes: [AppRouteState]
     /// рубильник «подключать нужные серверы при старте демона» (Настройки)
     public let autostartConnect: Bool
+    /// релизная версия демона (зашита в бинарь; публикует DaemonXPC.status).
+    /// пустая — старый демон без версии → GUI считает «устарел»
+    public var daemonVersion: String
 
     public init(generation: Int = 0, bootID: String = "", mode: TunnelMode = .running,
                 boxRunning: Bool = false, tunUp: Bool = false, sealed: Bool = false,
                 lastError: String = "", servers: [ServerState] = [],
-                appRoutes: [AppRouteState] = [], autostartConnect: Bool = false) {
+                appRoutes: [AppRouteState] = [], autostartConnect: Bool = false,
+                daemonVersion: String = "") {
         self.generation = generation; self.bootID = bootID; self.mode = mode
         self.boxRunning = boxRunning; self.tunUp = tunUp; self.sealed = sealed
         self.lastError = lastError; self.servers = servers; self.appRoutes = appRoutes
-        self.autostartConnect = autostartConnect
+        self.autostartConnect = autostartConnect; self.daemonVersion = daemonVersion
     }
 
     public static let empty = DaemonState()
 
     enum CodingKeys: String, CodingKey {
         case generation, bootID, mode, boxRunning, tunUp, sealed, lastError, servers, appRoutes
-        case autostartConnect
+        case autostartConnect, daemonVersion
     }
 
     public init(from decoder: Decoder) throws {
@@ -160,6 +164,7 @@ public struct DaemonState: Codable {
         servers = (try? c.decode([ServerState].self, forKey: .servers)) ?? []
         appRoutes = (try? c.decode([AppRouteState].self, forKey: .appRoutes)) ?? []
         autostartConnect = (try? c.decode(Bool.self, forKey: .autostartConnect)) ?? false
+        daemonVersion = (try? c.decode(String.self, forKey: .daemonVersion)) ?? ""
     }
 
     /// стабильная строка для сравнения «изменилось ли что-нибудь видимое»

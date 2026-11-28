@@ -29,7 +29,9 @@ echo "=== релиз v$VERSION ==="
 # версия внутрь бандла (plutil), чтобы скачанный .app показывал честную версию
 plutil -replace CFBundleShortVersionString -string "$VERSION" Resources/Info.plist
 plutil -replace CFBundleVersion -string "$(git rev-list --count HEAD)" Resources/Info.plist
-git add Resources/Info.plist
+# та же версия — в бинари (GUI и демон): сверка «устарел/свеж» по ней
+sed -i '' -E "s/^public let appReleaseVersion = \".*\";/public let appReleaseVersion = \"$VERSION\";/" Sources/AWGAppRouterKit/Version.swift
+git add Resources/Info.plist Sources/AWGAppRouterKit/Version.swift
 git commit -m "release: v$VERSION" --quiet
 
 scripts/build-core.sh

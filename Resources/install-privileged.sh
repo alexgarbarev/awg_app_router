@@ -26,18 +26,28 @@ xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
 
 mkdir -p /usr/local/lib/awgapprouter /etc/awgapprouter
 
-# бинари: подпись из бандла переезжает нетронутой (install/cp сохраняет).
-# НЕ переподписываем безусловно: codesign другой версии macOS (Sequoia vs
-# Tahoe) переписывает подпись иначе байт-в-байт → md5 установленного расходится
-# с md5 бандла → GUI вечно кричит «демон устарел». Подписываем только если
-# подпись реально битая.
+# Снимаем текущий демон ДО перезаписи бинарей: писать в исполняемый файл
+# живого процесса — гонка (ETXTBSY/полускопированный бинарь).
+launchctl bootout system/com.awgapprouter.daemon 2>/dev/null || true
+# bootout асинхронный и с дочерним box может занимать секунды: bootstrap в это
+# время стабильно отдаёт "Input/output error". Ждём фактического исчезновения
+# сервиса (до 10 с).
+for _ in $(seq 1 20); do
+    launchctl print system/com.awgapprouter.daemon >/dev/null 2>&1 || break
+    sleep 0.5
+done
+
+install -m 0644 -o root -g wheel "$RES/com.awgapprouter.daemon.plist" \
+    /Library/LaunchDaemons/com.awgapprouter.daemon.plist
+install -m 0755 -o root -g wheel "$RES/awgapprouterd" /usr/local/lib/awgapprouter/awgapprouterd
+install -m 0755 -o root -g wheel "$RES/awgapprouter-box" /usr/local/lib/awgapprouter/awgapprouter-box
+# бинари: подпись из бандла переезжает нетронутой (install сохраняет байты).
+# НЕ переподписываем безусловно: codesign другой версии macOS переписывает
+# подпись иначе → лишние различия установленного от бандла. Только если битая.
 codesign --verify /usr/local/lib/awgapprouter/awgapprouterd 2>/dev/null \
     || codesign --force --sign - /usr/local/lib/awgapprouter/awgapprouterd
 codesign --verify /usr/local/lib/awgapprouter/awgapprouter-box 2>/dev/null \
     || codesign --force --sign - /usr/local/lib/awgapprouter/awgapprouter-box
-
-install -m 0644 -o root -g wheel "$RES/com.awgapprouter.daemon.plist" \
-    /Library/LaunchDaemons/com.awgapprouter.daemon.plist
 # целевые пути — без карантина, даже если источник не удалось очистить
 xattr -d com.apple.quarantine /Library/LaunchDaemons/com.awgapprouter.daemon.plist \
     /usr/local/lib/awgapprouter/awgapprouterd /usr/local/lib/awgapprouter/awgapprouter-box \
@@ -112,14 +122,7 @@ echo -n "$MODE" > /etc/awgapprouter/mode
 chmod 0644 /etc/awgapprouter/mode /etc/awgapprouter/apps.json 2>/dev/null || true
 chmod 0750 /etc/awgapprouter
 
-launchctl bootout system/com.awgapprouter.daemon 2>/dev/null || true
-# bootout асинхронный и с дочерним box может занимать секунды: bootstrap в это
-# время стабильно отдаёт "Input/output error". Ждём фактического исчезновения
-# сервиса (до 10 с), потом бустрапулем.
-for _ in $(seq 1 20); do
-    launchctl print system/com.awgapprouter.daemon >/dev/null 2>&1 || break
-    sleep 0.5
-done
+# (bootout уже выполнен выше, до перезаписи бинарей; сервис снят)
 BOOT_OK=no
 BOOT_ERR=""
 for _ in 1 2 3 4 5 6; do

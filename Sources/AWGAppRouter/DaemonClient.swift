@@ -1,5 +1,4 @@
 import AppKit
-import CryptoKit
 import AWGAppRouterKit
 
 /// Клиент XPC к привилегированному демону.
@@ -13,6 +12,9 @@ final class DaemonClient {
     var onState: ((DaemonState) -> Void)?
 
     private var cachedInstalled: Bool?
+    /// последняя версия, сообщённая демоном (из pull или push): для сверки
+    /// «устарел» в installDaemon, где своего снимка состояния под рукой нет
+    private(set) var cachedDaemonVersion: String?
     private var connection: NSXPCConnection? {
         didSet { oldValue?.invalidate() }
     }
@@ -22,7 +24,10 @@ final class DaemonClient {
         func stateChanged(_ stateJSON: String) {
             guard let s = try? JSONDecoder().decode(DaemonState.self,
                                                    from: Data(stateJSON.utf8)) else { return }
-            DispatchQueue.main.async { DaemonClient.shared.onState?(s) }
+            DispatchQueue.main.async {
+                if !s.daemonVersion.isEmpty { DaemonClient.shared.cachedDaemonVersion = s.daemonVersion }
+                DaemonClient.shared.onState?(s)
+            }
         }
     }
     private let observer = Observer()
@@ -82,17 +87,23 @@ final class DaemonClient {
 
     func resetCache() { cachedInstalled = nil }
 
-    /// Установленный демон устарел (бинарь отличается от встроенного в пакет)?
-    func daemonNeedsUpdate() -> Bool {
+    /// Наш релизный номер (из бандла; dev-сборка без plist — из кода).
+    var appVersion: String {
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? appReleaseVersion
+    }
+
+    /// Установленный демон устарел? Сверяем РЕЛИЗНЫЕ ВЕРСИИ: наша (из бандла)
+    /// против той, что демон зашил в свой бинарь и принёс в status.
+    /// md5 не годился: codesign/install из-под другой macOS вносил байтовые
+    /// различия → ложное «устарел» на чистых установках.
+    /// reportedVersion nil → берём последний кэшированный снимок; если и его нет
+    /// (старый демон без версии или снимок не приходил) → «устарел»: переустановка
+    /// безопасно чинит и то, и другое.
+    func daemonNeedsUpdate(reportedVersion: String? = nil) -> Bool {
         guard daemonInstalled() else { return false }
-        func md5(_ path: String) -> String? {
-            guard let d = FileManager.default.contents(atPath: path) else { return nil }
-            return Insecure.MD5.hash(data: d).map { String(format: "%02x", $0) }.joined()
-        }
-        let installed = md5("/usr/local/lib/awgapprouter/awgapprouterd")
-        let bundled = md5((Bundle.main.resourceURL?.appendingPathComponent("awgapprouterd").path) ?? "")
-        guard let i = installed, let b = bundled else { return false }
-        return i != b
+        let v = reportedVersion ?? cachedDaemonVersion
+        guard let v, !v.isEmpty else { return true }
+        return v != appVersion
     }
 
     /// Быстрая синхронная проверка присутствия демона (не больше 2 с).
@@ -204,7 +215,10 @@ final class DaemonClient {
             proxy?.status { json in
                 settle(try? JSONDecoder().decode(DaemonState.self, from: Data(json.utf8)))
             } ?? settle(nil)
-        } completion: { s in completion(s) }
+        } completion: { s in
+            if let v = s?.daemonVersion, !v.isEmpty { self.cachedDaemonVersion = v }
+            completion(s)
+        }
     }
 
     /// Установка/обновление демона: один admin-промпт, дальше скрипт делает всё.
@@ -212,9 +226,12 @@ final class DaemonClient {
     /// и/или в App Translocation — exec внутреннего скрипта молча блокируется.
     /// Читаем содержимое и исполняем свою копию из /tmp: файлы, созданные нашим
     /// процессом, карантина не несут.
-    func installDaemon(force: Bool = false,
+    /// knownVersion — только что декодированный снимок вызывающего (наш кэш
+    /// может быть на поколение старее после обновления демона).
+    func installDaemon(force: Bool = false, knownVersion: String? = nil,
                        completion: @escaping (Bool, String) -> Void) {
-        if daemonInstalled() && !force && !daemonNeedsUpdate() {
+        if daemonInstalled() && !force &&
+            !daemonNeedsUpdate(reportedVersion: knownVersion ?? cachedDaemonVersion) {
             cachedInstalled = true
             completion(true, "демон уже установлен")
             return

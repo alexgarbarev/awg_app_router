@@ -22,6 +22,9 @@ final class MainViewController: NSViewController, NSTableViewDataSource, NSTable
     /// в титрах сверху оно переносилось на две строки и ломало layout
     private let updateNotice = NSTextField(labelWithString: "")
     private var noticeShown = false
+    /// версии в углу: «app X · демон Y» — честная расшифровка «устарел/свеж»
+    /// одним взглядом (сверка релизных версий, не байтов)
+    private let versionLabel = NSTextField(labelWithString: "")
     /// кнопка ручного refresh — по одной в each баре (серверы/приложения)
     private let refreshButtons: [NSButton] = [NSButton(), NSButton()]
     private let refreshIndicators: [NSProgressIndicator] = [NSProgressIndicator(), NSProgressIndicator()]
@@ -190,7 +193,11 @@ final class MainViewController: NSViewController, NSTableViewDataSource, NSTable
 
         // уведомление об обновлении демона — ПОСЛЕ кнопок: оно появляется
         // редко, окно при этом растягивается (см. showUpdateNotice)
-        let bottomStack = NSStackView(views: [bottomBar, updateNotice])
+        versionLabel.font = .systemFont(ofSize: 10)
+        versionLabel.textColor = .tertiaryLabelColor
+        versionLabel.alignment = .right
+        versionLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let bottomStack = NSStackView(views: [bottomBar, updateNotice, versionLabel])
         bottomStack.orientation = .vertical
         bottomStack.alignment = .width
         bottomStack.spacing = 4
@@ -552,12 +559,15 @@ final class MainViewController: NSViewController, NSTableViewDataSource, NSTable
         guard DaemonClient.shared.daemonInstalled() else {
             primaryButton.title = "Установить демон…"
             statusLabel.stringValue = "демон не установлен (нужен пароль один раз)"
+            versionLabel.stringValue = "app \(DaemonClient.shared.appVersion) · демон —"
             powerButton.isHidden = true
             showUpdateNotice(stale: false, offline: false)
             return
         }
         powerButton.isHidden = false
-        let stale = DaemonClient.shared.daemonNeedsUpdate()
+        let stale = DaemonClient.shared.daemonNeedsUpdate(reportedVersion: status?.daemonVersion)
+        let demoV = status?.daemonVersion.isEmpty == false ? status!.daemonVersion : "?"
+        versionLabel.stringValue = "app \(DaemonClient.shared.appVersion) · демон \(demoV)"
         // демон молчит (завис): кнопка обязательна — installDaemon(force) делает
         // bootout+bootstrap, это единственная починка висящего сервиса;
         // скрыть её «потому что бинарь свежий» = оставить пользователя один на один
