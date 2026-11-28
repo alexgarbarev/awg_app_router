@@ -16,6 +16,14 @@ launchctl bootout system/com.approuter.daemon 2>/dev/null || true
 pkill -TERM -x approuter-box 2>/dev/null || true
 rm -f /Library/LaunchDaemons/com.approuter.daemon.plist
 
+# --- карантин ---
+# zip из Firefox/Chrome: карантин на всех файлах бандла; install/cp переносит
+# его на plist и бинари — launchd отказывается бустрапить карантинный plist
+# (стабильный "Bootstrap failed: 5: Input/output error"), а AMFI убивает
+# карантинный бинарь. Снимаем: сначала с бандла (если он не на read-only
+# translocation-монте — тогда не получится и снимаем с копий ниже).
+xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
+
 mkdir -p /usr/local/lib/awgapprouter /etc/awgapprouter
 
 # бинари (ad-hoc подпись пересоздаём на месте — cp сохраняет, но на всякий)
@@ -26,6 +34,10 @@ codesign --force --sign - /usr/local/lib/awgapprouter/awgapprouter-box
 
 install -m 0644 -o root -g wheel "$RES/com.awgapprouter.daemon.plist" \
     /Library/LaunchDaemons/com.awgapprouter.daemon.plist
+# целевые пути — без карантина, даже если источник не удалось очистить
+xattr -d com.apple.quarantine /Library/LaunchDaemons/com.awgapprouter.daemon.plist \
+    /usr/local/lib/awgapprouter/awgapprouterd /usr/local/lib/awgapprouter/awgapprouter-box \
+    2>/dev/null || true
 
 # посев состояние: apps/servers из GUI-стора (если есть). Серверы сеются
 # ВЫКЛЮЧЕННЫМИ — это тюрьма: приложения без сети, остальное direct. Включает
