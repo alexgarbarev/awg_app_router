@@ -68,6 +68,14 @@ sudo "/Applications/AWG App Router.app/Contents/Resources/uninstall-privileged.s
 подробности в THIRD-PARTY-NOTICES.txt внутри бандла.
 EOF
 
+# changelog: секция текущей версии из CHANGELOG.md — в notes релиза
+{
+    echo
+    echo "## Что нового в v$VERSION"
+    echo
+    awk -v v="## v$VERSION" 'index($0, v)==1 {f=1; next} /^## v[0-9]/ {f=0} f' CHANGELOG.md
+} >> "$NOTES"
+
 git push origin main
 git tag -a "v$VERSION" -m "AWG App Router v$VERSION"
 git push origin "v$VERSION"
