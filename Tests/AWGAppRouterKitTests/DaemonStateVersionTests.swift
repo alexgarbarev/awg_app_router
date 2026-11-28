@@ -20,4 +20,15 @@ final class DaemonStateVersionTests: XCTestCase {
         XCTAssertEqual(d.daemonVersion, "")
         XCTAssertEqual(d.generation, 3)
     }
+
+    /// «устарел» считается semver-порогом: строковая '<' подставила бы
+    /// "1.10.0" < "1.9.0" = правда — а это неправда
+    func testSemverThresholdComparesNumerically() {
+        XCTAssertTrue(daemonVersionOlderThan("1.9.0", than: "1.10.0"))
+        XCTAssertFalse(daemonVersionOlderThan("1.10.0", than: "1.9.0"))
+        XCTAssertFalse(daemonVersionOlderThan("1.0.5", than: "1.0.5"))   // равны — не устарел
+        XCTAssertTrue(daemonVersionOlderThan("1.0.4", than: "1.0.5"))
+        XCTAssertTrue(daemonVersionOlderThan("1.0", than: "1.0.1"))        // неполные дополняются
+        XCTAssertFalse(daemonVersionOlderThan("2.0.0", than: "1.99.99"))  // новый мейджор свеж
+    }
 }

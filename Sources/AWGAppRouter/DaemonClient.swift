@@ -92,18 +92,16 @@ final class DaemonClient {
         (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? appReleaseVersion
     }
 
-    /// Установленный демон устарел? Сверяем РЕЛИЗНЫЕ ВЕРСИИ: наша (из бандла)
-    /// против той, что демон зашил в свой бинарь и принёс в status.
-    /// md5 не годился: codesign/install из-под другой macOS вносил байтовые
-    /// различия → ложное «устарел» на чистых установках.
-    /// reportedVersion nil → берём последний кэшированный снимок; если и его нет
-    /// (старый демон без версии или снимок не приходил) → «устарел»: переустановка
-    /// безопасно чинит и то, и другое.
+    /// Установленный демон устарел? Сверяем с ПОРОГОМ minDaemonVersion, а не
+    /// по любому расхождению: UI-only релиз (minDaemonVersion не меняли) НЕ
+    /// требует переустановки рабочего демона. Демон приносит свою daemonVersion
+    /// в status; ниже порога → «устарел». reportedVersion nil → берём кэш;
+    /// пусто (старый демон без версии / снимка не было) → «устарел» (безопасно).
     func daemonNeedsUpdate(reportedVersion: String? = nil) -> Bool {
         guard daemonInstalled() else { return false }
         let v = reportedVersion ?? cachedDaemonVersion
         guard let v, !v.isEmpty else { return true }
-        return v != appVersion
+        return daemonVersionOlderThan(v, than: minDaemonVersion)
     }
 
     /// Быстрая синхронная проверка присутствия демона (не больше 2 с).

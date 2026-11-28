@@ -460,7 +460,7 @@ final class Supervisor {
                            boxRunning: running, tunUp: tun, sealed: sealed,
                            lastError: lastError, servers: states, appRoutes: routes,
                            autostartConnect: autoConnectOn,
-                           daemonVersion: appReleaseVersion)
+                           daemonVersion: daemonVersion)
     }
 
     private func publishNow() {

@@ -568,6 +568,7 @@ final class MainViewController: NSViewController, NSTableViewDataSource, NSTable
         let stale = DaemonClient.shared.daemonNeedsUpdate(reportedVersion: status?.daemonVersion)
         let demoV = status?.daemonVersion.isEmpty == false ? status!.daemonVersion : "?"
         versionLabel.stringValue = "app \(DaemonClient.shared.appVersion) · демон \(demoV)"
+            + (stale ? " (нужен ≥ \(minDaemonVersion))" : "")
         // демон молчит (завис): кнопка обязательна — installDaemon(force) делает
         // bootout+bootstrap, это единственная починка висящего сервиса;
         // скрыть её «потому что бинарь свежий» = оставить пользователя один на один

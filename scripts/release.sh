@@ -9,8 +9,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="${1:-}"
+shift || true
+DAEMON_CHANGED=no
+[[ "${1:-}" == "--daemon" ]] && DAEMON_CHANGED=yes
 [[ "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]] || {
-    echo "использование: scripts/release.sh X.Y.Z"; exit 1
+    echo "использование: scripts/release.sh X.Y.Z [--daemon]"; exit 1
 }
 command -v gh >/dev/null 2>&1 || { echo "нужен gh: brew install gh"; exit 1; }
 gh auth status >/dev/null 2>&1 || { echo "сначала: gh auth login"; exit 1; }
@@ -24,13 +27,19 @@ git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null && {
     echo "тег v$VERSION уже есть — другая версия"; exit 1
 } || true
 
-echo "=== релиз v$VERSION ==="
+echo "=== релиз v$VERSION (демон: $([ "$DAEMON_CHANGED" = yes ] && echo 'изменён — bump' || echo 'без изменений — UI-only')) ==="
 
 # версия внутрь бандла (plutil), чтобы скачанный .app показывал честную версию
 plutil -replace CFBundleShortVersionString -string "$VERSION" Resources/Info.plist
 plutil -replace CFBundleVersion -string "$(git rev-list --count HEAD)" Resources/Info.plist
-# та же версия — в бинари (GUI и демон): сверка «устарел/свеж» по ней
-sed -i '' -E "s/^public let appReleaseVersion = \".*\";/public let appReleaseVersion = \"$VERSION\";/" Sources/AWGAppRouterKit/Version.swift
+# appReleaseVersion — всегда за текущим релизом
+sed -i '' -E "s/^(public let appReleaseVersion = \")[^\"]*\"/\1$VERSION\"/" Sources/AWGAppRouterKit/Version.swift
+# daemonVersion/minDaemonVersion — ТОЛЬКО если демон реально менялся (--daemon):
+# иначе рабочий демон прошедшего релиза не будет переустанавливаться зря
+if [ "$DAEMON_CHANGED" = yes ]; then
+    sed -i '' -E "s/^(public let daemonVersion = \")[^\"]*\"/\1$VERSION\"/" Sources/AWGAppRouterKit/Version.swift
+    sed -i '' -E "s/^(public let minDaemonVersion = \")[^\"]*\"/\1$VERSION\"/" Sources/AWGAppRouterKit/Version.swift
+fi
 git add Resources/Info.plist Sources/AWGAppRouterKit/Version.swift
 git commit -m "release: v$VERSION" --quiet
 

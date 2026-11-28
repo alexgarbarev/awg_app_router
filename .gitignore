@@ -17,3 +17,6 @@
 DerivedData/
 Resources/AppIcon.iconset/
 Resources/AppIcon-1024.png
+
+# редактор — локальные конфиги дебага, не публикуются
+/.vscode/
