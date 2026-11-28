@@ -258,6 +258,10 @@ final class MainViewController: NSViewController, NSTableViewDataSource, NSTable
         // прилетают в applyStatus сами; + один pull при появлении окна —
         // страховка для демона без пуша и на случай разрыва XPC
         DaemonClient.shared.onState = { [weak self] s in self?.applyStatus(s) }
+        // заголовок кнопки — по факту диска ДО первого статуса: на чистой
+        // машине статуса нет и applyStatus(nil) молча выходит, а кнопка
+        // оставалась дефолтной «Запустить» вместо «Установить демон…»
+        updateControls()
         refreshStatus()
     }
 
