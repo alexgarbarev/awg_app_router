@@ -26,11 +26,15 @@ xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
 
 mkdir -p /usr/local/lib/awgapprouter /etc/awgapprouter
 
-# бинари (ad-hoc подпись пересоздаём на месте — cp сохраняет, но на всякий)
-install -m 0755 -o root -g wheel "$RES/awgapprouterd" /usr/local/lib/awgapprouter/awgapprouterd
-install -m 0755 -o root -g wheel "$RES/awgapprouter-box" /usr/local/lib/awgapprouter/awgapprouter-box
-codesign --force --sign - /usr/local/lib/awgapprouter/awgapprouterd
-codesign --force --sign - /usr/local/lib/awgapprouter/awgapprouter-box
+# бинари: подпись из бандла переезжает нетронутой (install/cp сохраняет).
+# НЕ переподписываем безусловно: codesign другой версии macOS (Sequoia vs
+# Tahoe) переписывает подпись иначе байт-в-байт → md5 установленного расходится
+# с md5 бандла → GUI вечно кричит «демон устарел». Подписываем только если
+# подпись реально битая.
+codesign --verify /usr/local/lib/awgapprouter/awgapprouterd 2>/dev/null \
+    || codesign --force --sign - /usr/local/lib/awgapprouter/awgapprouterd
+codesign --verify /usr/local/lib/awgapprouter/awgapprouter-box 2>/dev/null \
+    || codesign --force --sign - /usr/local/lib/awgapprouter/awgapprouter-box
 
 install -m 0644 -o root -g wheel "$RES/com.awgapprouter.daemon.plist" \
     /Library/LaunchDaemons/com.awgapprouter.daemon.plist
