@@ -35,8 +35,9 @@ public enum EndpointResolver {
             while let cur = p {
                 if cur.pointee.ai_family == AF_INET, let sa = cur.pointee.ai_addr {
                     ip = sa.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { sin in
+                        var addr = sin.pointee.sin_addr
                         var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-                        guard inet_ntop(AF_INET, UnsafeRawPointer(&sin.pointee.sin_addr), &buf,
+                        guard inet_ntop(AF_INET, &addr, &buf,
                                         socklen_t(INET_ADDRSTRLEN)) != nil else { return nil }
                         return String(cString: buf)
                     }
