@@ -48,8 +48,10 @@ cat > "$NOTES" <<'EOF'
 ## Установка
 
 1. Распакуй `AWG App Router.app` в `/Applications`.
-2. Gatekeeper (подпись ad-hoc): правый клик по приложению → «Открыть» → «Открыть»,
-   либо в терминале:
+2. Gatekeeper (подпись ad-hoc): при первом запуске macOS заругается и предложит
+   удалить приложение — закрой это окно. Затем **System Settings → Privacy & Security**
+   → в блоке Security найди «AWG App Router был заблокирован» → **«Open Anyway»**.
+   Либо в терминале:
    ```sh
    xattr -dr com.apple.quarantine "/Applications/AWG App Router.app"
    ```
