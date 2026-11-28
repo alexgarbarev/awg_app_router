@@ -208,6 +208,10 @@ final class DaemonClient {
     }
 
     /// Установка/обновление демона: один admin-промпт, дальше скрипт делает всё.
+    /// Скрипт НЕ исполняется из бандла напрямую: свежескачанный бандл в карантине
+    /// и/или в App Translocation — exec внутреннего скрипта молча блокируется.
+    /// Читаем содержимое и исполняем свою копию из /tmp: файлы, созданные нашим
+    /// процессом, карантина не несут.
     func installDaemon(force: Bool = false,
                        completion: @escaping (Bool, String) -> Void) {
         if daemonInstalled() && !force && !daemonNeedsUpdate() {
@@ -215,28 +219,51 @@ final class DaemonClient {
             completion(true, "демон уже установлен")
             return
         }
+        let resDir = (Bundle.main.resourceURL ?? Bundle.main.bundleURL).path
         let script = (Bundle.main.resourceURL ?? Bundle.main.bundleURL)
             .appendingPathComponent("install-privileged.sh").path
-        guard FileManager.default.isExecutableFile(atPath: script) else {
+        guard FileManager.default.fileExists(atPath: script) else {
             DispatchQueue.main.async { completion(false, "скрипт установки не найден в пакете") }
             return
         }
         DispatchQueue.global(qos: .userInitiated).async {
-            // кавычки обязательны внутри AppleScript-строки: путь бандла с пробелом,
-            // без них /bin/sh режет команду по первому пробелу (exit 127)
-            let appleScript = NSAppleScript(source: "do shell script \"\\\"\(script)\\\" 2>&1\" with administrator privileges")
+            let tmp = "/tmp/awgapprouter-install-\(ProcessInfo.processInfo.processIdentifier).sh"
+            do {
+                let data = try Data(contentsOf: URL(fileURLWithPath: script))
+                try data.write(to: URL(fileURLWithPath: tmp))
+                try FileManager.default.setAttributes([.posixPermissions: 0o755],
+                                                      ofItemAtPath: tmp)
+            } catch {
+                DispatchQueue.main.async {
+                    completion(false, "не удалось подготовить скрипт установки: \(error.localizedDescription)")
+                }
+                return
+            }
+            // одиночные кавычки для AWG_RES (путь бандла с пробелом); апостроф
+            // в пути экранируем по rules shell-quoting, чтобы не разваливало команду
+            let resQuoted = "'" + resDir.replacingOccurrences(of: "'", with: "'\\''") + "'"
+            let cmd = "AWG_RES=\(resQuoted) sh \(tmp) 2>&1; rc=$?; rm -f \(tmp); exit $rc"
+            let appleScript = NSAppleScript(source: "do shell script \"\(cmd)\" with administrator privileges")
             var errDict: NSDictionary?
-            appleScript?.executeAndReturnError(&errDict)
-            let scriptOK = errDict == nil
+            _ = appleScript?.executeAndReturnError(&errDict)
+            // настоящая причина падения: у AppleScript-ошибки ключ NSerrorString
+            let errMsg: String? = errDict.map {
+                ($0["NSerrorString"] as? String) ?? $0.description
+            }
             // авторитет — живой демон, не код osascript: установка могла пройти,
-            // а osascript споткнуться (гонка launchctl) — UI не должен врать
-            self.cachedInstalled = nil
-            self.probe()
-            let ok = (self.cachedInstalled ?? false) || scriptOK
+            // а osascript споткнуться (гонка launchctl) — UI не должен врать.
+            // launchd поднимает демона до нескольких секунд — ждём и перепроверяем
+            var alive = false
+            for _ in 0..<8 {
+                self.cachedInstalled = nil
+                self.probe()
+                if self.cachedInstalled == true { alive = true; break }
+                Thread.sleep(forTimeInterval: 1.0)
+            }
             DispatchQueue.main.async {
-                self.cachedInstalled = ok
-                completion(ok, ok ? "демон установлен и запущен"
-                                  : "установка не подтверждена (\(errDict?["NSlocalizedError"] ?? "нет ответа демона"))")
+                self.cachedInstalled = alive
+                completion(alive, alive ? "демон установлен и запущен"
+                                        : (errMsg ?? "демон не отвечает после установки"))
             }
         }
     }

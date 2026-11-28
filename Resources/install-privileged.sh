@@ -3,7 +3,9 @@
 # privileges" из приложения; скрипт лежит внутри AWGAppRouter.app/Contents/Resources —
 # определяем расположение бандла по своему пути.
 set -euo pipefail
-RES="$(cd "$(dirname "$0")" && pwd)"
+# GUI при установке копирует скрипт в /tmp (в карантином/Translocation бандле
+# exec запрещён) и передаёт настоящий ресурсный каталог через AWG_RES
+RES="${AWG_RES:-$(cd "$(dirname "$0")" && pwd)}"
 APP="$(dirname "$(dirname "$RES")")"
 echo "установка из: $APP"
 
